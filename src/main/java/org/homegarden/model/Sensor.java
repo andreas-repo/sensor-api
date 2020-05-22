@@ -10,7 +10,7 @@ public class Sensor implements Serializable {
     @JsonbProperty("id")
     private int id;
     private Date timestamp;
-@JsonbProperty("sensorValue")
+    @JsonbProperty("sensorValue")
     private int sensorValue;
 
     @ManyToOne
