@@ -1,6 +1,6 @@
 package org.homegarden.api;
 
-import org.homegarden.model.Sensor;
+ import org.homegarden.model.Sensor;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
