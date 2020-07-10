@@ -1,0 +1,10 @@
+POST http://localhost:8080/sensor-api/sensor
+Content-Type: application/json
+
+{
+  "id": 1,
+  "sensorValue": 222
+}
+
+###
+

@@ -9,8 +9,12 @@ import javax.json.bind.JsonbBuilder;
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import javax.ws.rs.core.Response;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SensorResourceImpl implements SensorResource {
+
+    final Logger logger = Logger.getLogger(SensorResourceImpl.class.getName());
 
     @Inject
     EntityManager entityManager;
@@ -26,7 +30,8 @@ public class SensorResourceImpl implements SensorResource {
             result = jsonb.toJson(sensor);
             response = Response.ok(result).status(200).build();
         }else {
-            response = Response.ok("Sensor doesnt exist.").status(204).build();
+            response = Response.ok("NOT FOUNT: Sensor doesnt exist.").status(404).build();
+            logger.log(Level.INFO, "Sensor " +id +" doesnt exist.");
         }
         return response;
     }
@@ -39,12 +44,14 @@ public class SensorResourceImpl implements SensorResource {
         if (foundSensor == null) {
             entityManager.persist(sensor);
             response= Response.ok("New Sensor created.").status(201).build();
+            logger.log(Level.INFO, "201: Sensor Entity successful created.");
         } else {
             foundSensor.setSensorValue(sensor.getSensorValue());
             entityManager.persist(foundSensor);
-            response= Response.ok("Sensor updated.").status(209).build();
+            response= Response.ok("Sensor updated.").status(200).build();
+            logger.log(Level.INFO, "Sensor successful updated.");
         }
-        return Response.ok().build();
+        return response;
     }
 
 
