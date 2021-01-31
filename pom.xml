@@ -17,6 +17,15 @@
     <quarkus.platform.group-id>io.quarkus</quarkus.platform.group-id>
     <quarkus.platform.version>1.4.1.Final</quarkus.platform.version>
     <surefire-plugin.version>2.22.1</surefire-plugin.version>
+
+    <!-- application info -->
+    <revision>1.0.0</revision>
+    <git.commit>local</git.commit>
+    <git.branch>local</git.branch>
+    <build.number>0</build.number>
+    <timestamp>${maven.build.timestamp}</timestamp>
+    <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss</maven.build.timestamp.format>
+    <release-planning.version>local</release-planning.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -30,6 +39,10 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-config-yaml</artifactId>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-resteasy</artifactId>
