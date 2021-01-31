@@ -1,0 +1,66 @@
+quarkus:
+
+  package:
+    output-name: "ltk-ems"
+    type: "uber-jar"
+    runner-suffix: "-service"
+
+  http:
+    port: 8080
+    test-port: 8120
+
+  resteasy:
+    path: "/"
+
+  swagger-ui:
+    always-include: true
+
+  log:
+    level: INFO
+    file:
+      enable: true
+      format: "sensor-api %p [%c] Thread-%t{id} | %d{yyyy-MM-dd HH:mm:ss,SSS} | %s%e%n"
+      level: INFO
+      path: "log/sensor-api.log"
+      rotation:
+        max-file-size: 50M
+        file-suffix: ".yyyy-MM-dd"
+
+  datasource:
+    incognito:
+      health:
+        enabled: false
+      db-kind: "h2"
+      jdbc:
+        initial-size: 2
+        min-size: 2
+        max-size: 5
+        idle-removal-interval: 1M
+        enable-metrics: true
+        background-validation-interval: 1M
+        leak-detection-interval: 1M
+
+sensor-api:
+  info:
+    build:
+      version: '${revision}'
+      date: "${timestamp}"
+      number: '${build.number}'
+    git:
+      branch: '${git.branch}'
+      commit: '${git.commit}'
+    release:
+      version: '${release-planning.version}'
+
+"%vprod":
+  quarkus:
+
+    datasource:
+      h2:
+        jdbc:
+          url: "jdbc:h2:tcp://192.168.0.11/~/sensor-api"
+        username: "root"
+        password: "root"
+
+
+

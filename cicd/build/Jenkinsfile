@@ -1,0 +1,136 @@
+#!groovy
+
+pipeline {
+    agent {
+        label 'docker-agent'
+    }
+
+    tools {
+        jdk 'openjdk-11'
+        maven 'maven-3.6.3'
+    }
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '20'))
+    }
+
+    environment {
+        SERVICE_NAME = readMavenAttribute(attributeName: 'artifactId')
+        SERVICE_PORT = readYamlProperty(propertyPath: 'quarkus.http.test-port')
+        RELEASE_PLANNING_VERSION = VersionNumber(versionNumberString: '${BUILD_DATE_FORMATTED, "yyyy"}KW${BUILD_WEEK, XX}.${BUILDS_THIS_WEEK, XXX}')
+        TOTAL_BUILDS = VersionNumber(versionNumberString: '${BUILDS_ALL_TIME}')
+        RELEASE_PLANNING_VERSION_STRING = VersionUtil.releasePlanningVersion("${RELEASE_PLANNING_VERSION}", "${SERVICE_NAME}")
+        ADAPTED_VERSION = VersionUtil.calculateVersion("${GIT_BRANCH}", readMavenProperty(propertyName: "revision"), "${BUILD_NUMBER}")
+        VERSION = createVersion(pomVersion: "${ADAPTED_VERSION}", branch: "${GIT_BRANCH}", builds: "${TOTAL_BUILDS}")
+        DOCKER_IMAGE_TAG = "${SERVICE_NAME}:${VERSION}"
+        DOCKER_IMAGE_PUSH_TAG = "${env.NEXUS_DOCKER_REGISTRY_HOST}/${DOCKER_IMAGE_TAG}"
+        LOCK_NAME = "lock-${SERVICE_NAME}"
+    }
+
+    stages {
+        stage('Build Artifact') {
+            steps {
+                script {
+                    configFileProvider([configFile(fileId: 'microservice-settings', variable: 'SETTINGS_XML')]) {
+                        sh "mvn -s ${SETTINGS_XML} -B clean install \
+                                -DskipTests=true \
+                                -Drevision=${VERSION} \
+                                -Dgit.commit=${env.GIT_COMMIT} \
+                                -Dgit.branch=${env.GIT_BRANCH} \
+                                -Dbuild.number=${env.BUILD_NUMBER} \
+                                -Drelease-planning.version=${RELEASE_PLANNING_VERSION_STRING}"
+                    }
+                }
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                script {
+                    lock("${env.LOCK_NAME}") {
+                        configFileProvider([configFile(fileId: 'microservice-settings', variable: 'SETTINGS_XML')]) {
+                            sh "mvn -s ${SETTINGS_XML} -B test \
+                                    -Dquarkus.test.profile=vprod \
+                                    -Drevision=${VERSION} \
+                                    -Dgit.commit=${env.GIT_COMMIT} \
+                                    -Dgit.branch=${env.GIT_BRANCH} \
+                                    -Dbuild.number=${env.BUILD_NUMBER} \
+                                    -Drelease-planning.version=${RELEASE_PLANNING_VERSION_STRING}"
+                            junit testResults: 'target/surefire-reports/**/*.xml', allowEmptyResults: true
+                            jacoco(execPattern: 'target/*.exec', classPattern: 'target/classes', sourcePattern: 'src/main/java', exclusionPattern: 'src/test*')
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                script {
+                    configFileProvider([configFile(fileId: 'microservice-settings', variable: 'SETTINGS_XML')]) {
+                        sh "mvn -s ${SETTINGS_XML} -B failsafe:verify \
+                                -Drevision=${VERSION} \
+                                -Dgit.commit=${env.GIT_COMMIT} \
+                                -Dgit.branch=${env.GIT_BRANCH} \
+                                -Dbuild.number=${env.BUILD_NUMBER} \
+                                -Drelease-planning.version=${RELEASE_PLANNING_VERSION_STRING}"
+                    }
+                }
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                script {
+                    sh "cp -f ./target/${SERVICE_NAME}-service.jar ./cicd/build/docker/${SERVICE_NAME}-service.jar"
+                    buildContainerImage(
+                            dockerfile: "./cicd/build/docker/Dockerfile",
+                            context: "./cicd/build/docker",
+                            imageTag: "${env.DOCKER_IMAGE_TAG}",
+                            buildArgs: [
+                                    "GIT_BRANCH": "${env.GIT_BRANCH}",
+                                    "GIT_COMMIT": "${env.GIT_COMMIT}",
+                                    "VERSION"   : "${env.VERSION}",
+                                    "BUILD_DATE": "${env.BUILD_TIMESTAMP}"
+                            ]
+                    )
+                }
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                script {
+                    pushContainerImage(
+                            imageTag: "${env.DOCKER_IMAGE_TAG}",
+                            registry: "${env.NEXUS_DOCKER_REGISTRY_HOST}"
+                    )
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                sh 'mvn clean'
+                sh "rm -f ./cicd/build/docker/${SERVICE_NAME}-service.jar"
+            }
+        }
+
+        failure {
+            script {
+                sendEmail(subject: "Build for Branch '${env.GIT_BRANCH}' has failed.")
+            }
+        }
+
+        fixed {
+            script {
+                sendEmail(subject: "Build for Branch '${env.GIT_BRANCH}' has been fixed.")
+            }
+        }
+    }
+}
+
+
