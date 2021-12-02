@@ -46,7 +46,4 @@ public class SensorResourceImpl implements SensorResource {
         }
         return Response.ok().build();
     }
-
-
-
 }

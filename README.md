@@ -28,3 +28,7 @@ Or, if you don't have GraalVM installed, you can run the native executable build
 You can then execute your native executable with: `./target/sensor-api-1.0.0-SNAPSHOT-runner`
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/building-native-image.
+
+## Setup docker database
+
+docker run -it -p 5432:5432 -e POSTGRES_DB=listofsensorgroups -e POSTGRES_USER=root -e POSTGRES_PASSWORD=root postgres:12.5
